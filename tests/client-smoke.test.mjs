@@ -120,10 +120,6 @@ test('CompactionTab renders full state without unbound identifiers', () => {
   const mod = loadClient()
   const registrations = stubApply(mod)
   const tab = registrations.find(r => r.name === 'conversation.view')
-  // The registered component is the slot wrapper (hooks) — call the presenter
-  // through it only if it is hook-free; otherwise reach the presenter by
-  // rendering with a stubbed hooks environment. Both presenters here are
-  // hook-free, so execute them directly.
   const state = {
     takeover: {
       engineRegistered: true,
@@ -139,6 +135,10 @@ test('CompactionTab renders full state without unbound identifiers', () => {
       fraction: 0.35,
       engine: { tierPointer: 0, nextTier: { ratio: 0.5, retainRatio: 0.1, law: 'standard' } },
       lastCompaction: { kind: 'summary', provider: 'chain-a', model: 'model-a', shadowedTokens: 4200 },
+      history: [
+        { kind: 'summary', at: '2026-08-29T16:00:00Z', provider: 'chain-a', model: 'model-a', shadowedTokens: 4200, shadowedNodes: 40 },
+        { kind: 'error', at: '2026-08-29T15:00:00Z', error: 'route down' },
+      ],
     },
     config: {
       enabled: true,
@@ -152,18 +152,78 @@ test('CompactionTab renders full state without unbound identifiers', () => {
       models: [{ provider: 'chain-a', model: 'model-a', reasoningEffort: 'high' }],
     },
   }
-  // The presenter is exported hook-free precisely for this test; unbound
-  // identifiers inside its render body throw here.
-  const element = mod.views.CompactionTab({ sessionId: 's1', state, busy: false, refresh: () => {}, onCompact: () => {}, onRelease: () => {} })
-  assert.ok(element, 'tab returned an element tree')
-  const tree = JSON.stringify(element)
-  assert.ok(tree.includes('35%'), 'pressure fraction rendered')
+  const element = mod.views.CompactionTab({
+    sessionId: 's1', state, busy: false,
+    onCompact: () => {}, configOpen: false, onToggleConfig: () => {},
+  })
+  const tree = JSON.stringify(expand(element))
+  assert.ok(tree.includes('35%'), 'pressure readout rendered')
   assert.ok(tree.includes('tiered engine'), 'status pill rendered')
+  assert.ok(tree.includes('gentle') && tree.includes('consolidating'), 'tier table rendered')
+  assert.ok(tree.includes('armed') && tree.includes('consumed'), 'tier statuses rendered')
+  assert.ok(tree.includes('4,200 tok'), 'checkpoint history rendered')
+  assert.ok(tree.includes('route down'), 'checkpoint errors rendered')
+  assert.ok(tree.includes('primary') && tree.includes('last used'), 'chain table rendered')
+  assert.ok(!tree.includes('Release') && !tree.includes('Refresh'), 'utility-only actions: no release, no refresh')
 })
+
+test('ConfigPanel renders and edits tiers/models without unbound identifiers', () => {
+  const mod = loadClient()
+  const draft = {
+    enabled: true,
+    maxTokens: 8192,
+    tiers: [
+      { ratio: 0.3, retainRatio: 0.12, law: 'gentle' },
+      { ratio: 0.5, retainRatio: 0.1, law: 'standard' },
+    ],
+    models: [{ provider: 'chain-a', model: 'model-a', reasoningEffort: 'high' }],
+  }
+  const catalog = { groups: [{ id: 'chain-a', name: 'Chain A', models: [{ id: 'model-a', name: 'Model A', reasoning: { efforts: [{ id: 'high', name: 'High' }] } }] }], default: { provider: 'chain-a', model: 'model-a' } }
+  let patched = null
+  const element = mod.views.ConfigPanel({
+    draft, setDraft: (next) => { patched = next }, catalog, notice: null, saving: false,
+    onSave: () => {}, onDiscard: () => {},
+  })
+  const tree = JSON.stringify(expand(element))
+  assert.ok(tree.includes('configuration'), 'config eyebrow rendered')
+  assert.ok(tree.includes('maxTokens'), 'maxTokens editor rendered')
+  assert.ok(tree.includes('primary'), 'chain role rendered')
+
+  // Editing a tier ratio flows through setDraft.
+  const tierInput = JSON.stringify(tree).length // locate via behavior instead:
+  const rows = collect(element, 'input')
+  const ratioInput = rows.find(r => String(r.props.value) === '0.3')
+  assert.ok(ratioInput, 'tier ratio input present')
+  ratioInput.props.onChange({ target: { value: '0.25' } })
+  assert.ok(patched && patched.tiers[0].ratio === 0.25, 'tier edit flows through setDraft')
+})
+
+/** Depth-first collect elements matching a tag name. */
+function collect(node, tag, out = []) {
+  if (!node || typeof node !== 'object') return out
+  if (node.type === tag) out.push(node)
+  for (const child of [node.children, node.props && node.props.children].flat(4)) collect(child, tag, out)
+  return out
+}
+
+/**
+ * Expand function components by executing them (presenters are hook-free).
+ * DOM elements pass through; arrays flatten; depth-capped for safety.
+ */
+function expand(node, depth = 0) {
+  if (depth > 12 || node === null || node === undefined || typeof node !== 'object') return node
+  if (typeof node.type === 'function') {
+    const props = Object.assign({}, node.props)
+    if (node.children !== undefined && node.children.length > 0) props.children = node.children.length === 1 ? node.children[0] : node.children
+    return expand(node.type(props), depth + 1)
+  }
+  const kids = [node.children, node.props && node.props.children].flat(4).map((child) => expand(child, depth + 1))
+  return { type: node.type, props: node.props || {}, children: kids }
+}
 
 test('CompactionTab renders loading and null-session states without throwing', () => {
   const mod = loadClient()
-  assert.ok(mod.views.CompactionTab({ sessionId: 's1', state: null, busy: false, refresh: () => {}, onCompact: () => {}, onRelease: () => {} }))
+  assert.ok(mod.views.CompactionTab({ sessionId: 's1', state: null, busy: false, onCompact: () => {}, configOpen: false, onToggleConfig: () => {} }))
 })
 
 test('settings card renders the registered-namespace view end to end', () => {

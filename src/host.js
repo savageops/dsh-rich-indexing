@@ -13,7 +13,7 @@
  *     as the `compaction` service the moment the stock engine is gone.
  *  3. Registers the `rich-indexing` settings namespace (schema + live
  *     watch) — the Settings → Plugins card and this host share it.
- *  4. Serves /api/rich-indexing/{state,compact,release} for the client.
+ *  4. Serves /api/rich-indexing/{state,compact} for the client.
  *  5. On fiber dispose (plugin toggled off), removes the takeover line so
  *     stock compaction returns live. Compaction is never left dead.
  *
@@ -130,26 +130,36 @@ function ownEvents(session) {
 
 /** Last compaction facts from the durable log, for the state route. */
 function lastCompactionOf(session) {
-  for (let i = ownEvents(session).length - 1; i >= 0; i -= 1) {
-    const event = ownEvents(session)[i]
+  return compactionHistoryOf(session, 1)[0] ?? null
+}
+
+/**
+ * Newest-first checkpoint history. Summaries carry the facts a reader wants
+ * (route + shadowed size); an errored end is news; an error-less end is the
+ * cycle terminator and is skipped in favor of the summary behind it.
+ */
+function compactionHistoryOf(session, limit = 8) {
+  const events = ownEvents(session)
+  const history = []
+  for (let i = events.length - 1; i >= 0 && history.length < limit; i -= 1) {
+    const event = events[i]
     if (event?.type === 'compaction/summary') {
-      return {
+      history.push({
         kind: 'summary',
+        at: event.at ?? null,
         provider: event.data?.provider ?? null,
         model: event.data?.model ?? null,
         shadowedTokens: event.data?.shadowedTokenCount ?? null,
         shadowedNodes: Array.isArray(event.data?.shadowedSeqs) ? event.data.shadowedSeqs.length : null,
-      }
-    }
-    if (event?.type === 'compaction/end') {
-      // An error-less end is just the cycle terminator — keep scanning for
-      // the informative summary behind it; an errored end IS the news.
-      if (event.data?.error !== undefined && event.data?.error !== null) {
-        return { kind: 'error', error: event.data.error }
+      })
+    } else if (event?.type === 'compaction/end') {
+      const error = event.data?.error
+      if (error !== undefined && error !== null) {
+        history.push({ kind: 'error', at: event.at ?? null, error: String(error) })
       }
     }
   }
-  return null
+  return history
 }
 
 /** Loopback + same-origin guard (plugin-family posture; DSH core fences /api, plugins fence their own routes). */
@@ -329,6 +339,7 @@ export function apply(ctx, config = {}) {
             fraction,
             ...(engine !== null ? { engine: engine.agentStatus(agent, window) } : {}),
             lastCompaction: lastCompactionOf(agent.session),
+            history: compactionHistoryOf(agent.session, 8),
           }
         }
         writeJson(res, 200, {
@@ -371,31 +382,6 @@ export function apply(ctx, config = {}) {
               shadowedTokens: result.shadowedTokenCount,
               shadowedNodes: result.shadowedSeqs.length,
             },
-          })
-        } catch (error) {
-          writeJson(res, 500, { ok: false, error: String(error?.message ?? error) })
-        }
-      },
-    },
-    {
-      kind: 'exact',
-      path: `${API_PREFIX}/release`,
-      handler: async (req, res) => {
-        if (req.method !== 'POST') { writeJson(res, 405, { ok: false, error: 'method-not-allowed' }); return }
-        if (!guard(req, res)) return
-        if (patchPath === undefined) { writeJson(res, 409, { ok: false, error: 'patch-file-unknown' }); return }
-        try {
-          // ONE atomic write, ONE recomposition: the stock-disable block goes
-          // away and this plugin self-disables in the same patch revision —
-          // so the engine release and the stock remount land together, with
-          // no moment where `compaction` has two owners or none.
-          let text = readFileSync(patchPath, 'utf8')
-          text = removeManagedLine(text, STOCK_ENTRY_ID)
-          text = upsertManagedLine(text, SELF_ENTRY_ID, true)
-          writeFileSync(patchPath, text)
-          writeJson(res, 200, {
-            ok: true,
-            note: 'takeover released and the plugin self-disabled in one patch write; stock compaction restores on recomposition',
           })
         } catch (error) {
           writeJson(res, 500, { ok: false, error: String(error?.message ?? error) })
