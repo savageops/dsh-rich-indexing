@@ -106,7 +106,8 @@ The client half registers two slot contributions (no separate build — same
 ## Testing
 
 ```sh
-npm test        # 16 unit tests over the pure core (tiering, index, takeover line, laws)
+npm test        # 21 tests: pure core (tiering, index, takeover line, laws) + engine dispatch probe
+                # (the probe self-skips outside a profile tree — it needs the installation closure)
 ```
 
 ## Design

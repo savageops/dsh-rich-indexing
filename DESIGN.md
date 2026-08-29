@@ -185,7 +185,11 @@ above).
 - pure: tier selection (pressure → tier pointer + retain invariant),
   managed-line upsert YAML round-trip, fallback-chain decision, keyword
   extraction, law selection.
-- integration: engine against a real session (template:
-  `compaction-basic/tests/manual-compaction.spec.ts`).
+- dispatch probe (landed): real cordis Context + scripted stream from the
+  profile tree — registration as `ctx.compaction`, super dispatch, tier gate
+  + law arming, chain walk to the routed last resort.
+- integration: full transaction against a real session (template:
+  `compaction-basic/tests/manual-compaction.spec.ts`) — lands with the
+  live go-live pass.
 - live: restart, real session crossing each configured tier, sub-tab
   readback, toggle-off restores stock compaction.
