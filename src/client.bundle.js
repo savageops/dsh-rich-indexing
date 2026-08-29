@@ -21,6 +21,7 @@ window.__ModuleLoader__.load({
 		var module = { exports: {} };
 		var exports = module.exports;
 		var react = require("react");
+		var primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 		var h = react.createElement;
 		var useState = react.useState;
 		var useEffect = react.useEffect;
@@ -89,17 +90,14 @@ window.__ModuleLoader__.load({
 
 		//#region view/CompactionTab.js
 		/**
-		 * The conversation.view sub-tab. Session-scoped: the slot hands us
-		 * sessionId through the inject face. Polls the host state route; all
-		 * mutations are explicit buttons.
+		 * The conversation.view sub-tab, styled with the system's own
+		 * primitives (Button, Pill) and the family's label/hairline language:
+		 * 20px rhythm, secondary-label facts, one accent per state.
 		 */
 		function CompactionTab(props) {
-			var sessionId = props.sessionId;
 			var state = props.state;
-			var refresh = props.refresh;
-			var busy = props.busy;
 			if (state === null) {
-				return h("div", { style: { padding: "16px", color: "var(--dsw-alias-label-secondary, #888)" } }, "Loading compaction state…");
+				return h("div", { style: { padding: "20px", color: "var(--dsw-alias-label-secondary, #888)", fontSize: "12.5px" } }, "Loading compaction state\u2026");
 			}
 			var takeover = state.takeover || {};
 			var session = state.session;
@@ -112,71 +110,80 @@ window.__ModuleLoader__.load({
 			var healthy = takeover.engineRegistered === true;
 			var engineState = takeover.state || (healthy ? "active" : "unknown");
 			var children = [];
-			children.push(h("div", { key: "head", style: { display: "flex", alignItems: "baseline", gap: "12px", flexWrap: "wrap" } }, [
-				h("span", { key: "f", style: { fontSize: "22px", fontWeight: "600" } }, pct(fraction)),
-				h("span", { key: "l", style: { color: "var(--dsw-alias-label-secondary, #888)" } },
-					"of the routed context window" + (nextTier ? " · next tier at " + pctOf(nextTier.ratio) : " · ladder complete")),
-				h("span", {
-					key: "badge",
-					style: {
-						fontSize: "11px", padding: "1px 8px", borderRadius: "10px",
-						border: "1px solid var(--dsw-alias-border-l2, #8884)",
-						color: healthy ? "var(--dsw-alias-state-success-primary, #3d9970)" : "var(--dsw-alias-state-warning-primary, #d9a441)",
-					},
-				}, healthy ? "tiered engine" : String(engineState)),
+			// Headline: pressure fraction + status pill, one row, system typography.
+			children.push(h("div", { key: "head", style: { display: "flex", alignItems: "center", gap: "10px" } }, [
+				h("span", { key: "f", style: { fontSize: "20px", lineHeight: "28px", fontWeight: "600", fontVariantNumeric: "tabular-nums" } }, pct(fraction)),
+				h("span", { key: "l", style: { color: "var(--dsw-alias-label-secondary, #888)", fontSize: "12.5px" } },
+					"of the routed context window" + (nextTier ? " \u00b7 next tier at " + pctOf(nextTier.ratio) : " \u00b7 ladder complete")),
+				h("span", { key: "sp", style: { flex: 1 } }),
+				h(primitives.Pill, { key: "badge", active: healthy }, healthy ? "tiered engine" : String(engineState)),
 			]));
 			children.push(h(LadderBar, { key: "ladder", tiers: tiers, fraction: fraction, pointer: pointer }));
+			// Facts: definition rows, label column aligned like the family's panels.
 			var facts = [];
-			facts.push(h("div", { key: "tk" }, "tokens: " + (session && session.tokens != null ? String(session.tokens) : "—") + " · window: " + (session && session.window != null ? String(session.window) : "—")));
+			addFact(facts, "tokens", session && session.tokens != null ? String(session.tokens) : "\u2014");
+			addFact(facts, "window", session && session.window != null ? String(session.window) : "\u2014");
 			if (pointer != null && tiers[pointer]) {
-				facts.push(h("div", { key: "tp" }, "last fired tier: " + (pointer + 1) + " (" + tiers[pointer].law + ", keep " + pctOf(tiers[pointer].retainRatio) + ")"));
+				addFact(facts, "last fired tier", (pointer + 1) + " (" + tiers[pointer].law + ", keep " + pctOf(tiers[pointer].retainRatio) + ")");
 			}
 			if (last && last.kind === "summary") {
-				facts.push(h("div", { key: "lc" }, "last checkpoint: " + (last.provider || "?") + "/" + (last.model || "?") + " · shadowed ~" + (last.shadowedTokens != null ? last.shadowedTokens : "?") + " tokens"));
+				addFact(facts, "last checkpoint", (last.provider || "?") + "/" + (last.model || "?") + " \u00b7 shadowed ~" + (last.shadowedTokens != null ? last.shadowedTokens : "?") + " tok");
 			} else if (last && last.kind === "error") {
-				facts.push(h("div", { key: "le", style: { color: "var(--dsw-alias-state-danger-primary, #c0392b)" } }, "last compaction errored: " + (last.error || "unknown")));
+				addFact(facts, "last checkpoint", "error: " + (last.error || "unknown"));
 			} else {
-				facts.push(h("div", { key: "ln" }, "no compaction yet in this session"));
+				addFact(facts, "last checkpoint", "none yet in this session");
 			}
 			if (takeover.lastRoute) {
-				facts.push(h("div", { key: "lr" }, "summary route: " + takeover.lastRoute.provider + "/" + takeover.lastRoute.model + (takeover.lastRoute.reasoningEffort && takeover.lastRoute.reasoningEffort !== "default" ? " (effort " + takeover.lastRoute.reasoningEffort + ")" : "")));
+				addFact(facts, "summary route", takeover.lastRoute.provider + "/" + takeover.lastRoute.model
+					+ (takeover.lastRoute.reasoningEffort && takeover.lastRoute.reasoningEffort !== "default" ? " (effort " + takeover.lastRoute.reasoningEffort + ")" : ""));
 			}
 			if (Array.isArray(takeover.fallbackLog) && takeover.fallbackLog.length > 0) {
-				facts.push(h("div", { key: "fb", style: { color: "var(--dsw-alias-state-warning-primary, #d9a441)" } },
-					"fallback trail: " + takeover.fallbackLog.map(function (entry) { return entry.route + " (" + entry.error + ")" }).join(" → ")));
+				addFact(facts, "fallback trail", takeover.fallbackLog.map(function (entry) { return entry.route }).join(" \u2192 "));
 			}
-			facts.push(h("div", { key: "cfg" }, "models configured: " + ((config.models || []).length) + (takeover.linePresent === false ? " · takeover line absent" : "")));
-			children.push(h("div", { key: "facts", style: { color: "var(--dsw-alias-label-secondary, #888)", fontSize: "12px", lineHeight: "20px", margin: "8px 0 12px" } }, facts));
+			addFact(facts, "model chain", (config.models || []).length === 0 ? "conversation route (none configured)" : (config.models.length) + " route(s)");
+			children.push(h("div", { key: "facts", style: { margin: "10px 0 14px", display: "grid", gridTemplateColumns: "130px 1fr", rowGap: "4px", columnGap: "12px", fontSize: "12.5px", lineHeight: "18px" } },
+				facts.map(function (fact, i) {
+					return [
+						h("span", { key: "k" + i, style: { color: "var(--dsw-alias-label-secondary, #888)" } }, fact[0]),
+						h("span", { key: "v" + i, style: { color: "var(--dsw-alias-label-primary, inherit)", overflowWrap: "anywhere" } }, fact[1]),
+					];
+				}).flat()));
+			// Actions: system Button primitives.
 			children.push(h("div", { key: "actions", style: { display: "flex", gap: "8px" } }, [
-				h("button", {
-					key: "compact",
-					disabled: busy,
-					onClick: props.onCompact,
-					style: buttonStyle(),
-				}, "Compact now"),
-				h("button", {
-					key: "refresh",
-					disabled: busy,
-					onClick: refresh,
-					style: buttonStyle(),
-				}, "Refresh"),
-				h("button", {
-					key: "release",
-					disabled: busy,
-					onClick: props.onRelease,
-					style: Object.assign(buttonStyle(), { color: "var(--dsw-alias-state-danger-primary, #c0392b)" }),
-				}, "Release takeover"),
+				h(primitives.Button, { key: "compact", variant: "primary", size: "sm", disabled: busy, onClick: props.onCompact }, "Compact now"),
+				h(primitives.Button, { key: "refresh", variant: "ghost", size: "sm", disabled: busy, onClick: refresh }, "Refresh"),
+				h(primitives.Button, { key: "release", variant: "outline", size: "sm", disabled: busy, onClick: props.onRelease,
+					style: { color: "var(--dsw-alias-state-danger-primary, #c0392b)" } }, "Release takeover"),
 			]));
-			return h("div", { style: { padding: "14px 18px", maxWidth: "720px", fontFamily: "ui-sans-serif, system-ui, sans-serif" } }, children);
+			return h("div", { style: { padding: "16px 20px" } }, children);
 		}
 
-		function buttonStyle() {
-			return {
-				padding: "4px 12px", borderRadius: "8px", cursor: "pointer", fontSize: "12.5px",
-				border: "1px solid var(--dsw-alias-border-l2, #8884)",
-				background: "var(--dsw-alias-bg-base, transparent)",
-				color: "var(--dsw-alias-label-primary, inherit)",
-			};
+		function addFact(list, key, value) {
+			list.push([key, value]);
+		}
+
+		/** Horizontal tier ladder with the live pressure marker (system hairline + accent). */
+		function LadderBar(props) {
+			var tiers = props.tiers || [];
+			var fraction = props.fraction;
+			var children = [];
+			for (var i = 0; i < tiers.length; i += 1) {
+				var tier = tiers[i];
+				var crossed = typeof fraction === "number" && fraction >= tier.ratio;
+				var consumed = props.pointer !== null && props.pointer !== undefined && i <= props.pointer;
+				children.push(h("div", {
+					key: "t" + i,
+					title: "tier " + (i + 1) + ": " + pctOf(tier.ratio) + " \u00b7 keep " + pctOf(tier.retainRatio) + " \u00b7 " + tier.law,
+					style: {
+						flex: "1", height: "6px", borderRadius: "3px",
+						background: consumed ? "var(--dsw-alias-state-business-primary, #4a7dff)"
+							: crossed ? "var(--dsw-alias-state-warning-primary, #d9a441)"
+							: "var(--dsw-alias-border-l2, #8884)",
+						marginRight: "4px",
+					},
+				}));
+			}
+			return h("div", { style: { display: "flex", alignItems: "center", margin: "10px 0 12px" } }, children);
 		}
 		//#endregion
 
@@ -295,15 +302,15 @@ window.__ModuleLoader__.load({
 					}, [{ id: "default", name: "default" }].concat(efforts).map(function (effort) {
 						return h("option", { key: effort.id, value: effort.id }, effort.name || effort.id)
 					})),
-					h("button", { onClick: function () { removeModel(index) }, style: Object.assign(buttonStyle(), { padding: "2px 8px" }) }, "×"));
+					h(primitives.Button, { onClick: function () { removeModel(index) }, variant: "outline", size: "sm" }, "×"));
 			});
 			children.push(h("div", { key: "models", style: { marginBottom: "10px" } },
 				modelRows.length > 0 ? modelRows : h("div", { style: { color: "var(--dsw-alias-label-secondary, #888)", fontSize: "12px" } }, "no chain configured — summaries use the conversation's own route"),
-				models.length < 4 ? h("button", { onClick: addModel, style: Object.assign(buttonStyle(), { marginTop: "4px" }) }, "+ add route") : null));
+				models.length < 4 ? h(primitives.Button, { onClick: addModel, variant: "ghost", size: "sm", style: { marginTop: "4px" } }, "+ add route") : null));
 			// actions
 			children.push(h("div", { key: "actions", style: { display: "flex", gap: "8px", alignItems: "center" } }, [
-				h("button", { key: "save", onClick: save, style: Object.assign(buttonStyle(), { fontWeight: "600" }) }, "Save"),
-				h("button", { key: "reset", onClick: function () { setDraft(JSON.parse(JSON.stringify(view.value || {}))); setNotice(null) }, style: buttonStyle() }, "Discard"),
+				h(primitives.Button, { key: "save", variant: "primary", size: "sm", onClick: save }, "Save"),
+				h(primitives.Button, { key: "reset", variant: "ghost", size: "sm", onClick: function () { setDraft(JSON.parse(JSON.stringify(view.value || {}))); setNotice(null) } }, "Discard"),
 				notice ? h("span", { key: "notice", style: { fontSize: "12px", color: notice.indexOf("saved") === 0 ? "var(--dsw-alias-state-success-primary, #3d9970)" : "var(--dsw-alias-state-danger-primary, #c0392b)" } }, notice) : null,
 			]));
 
@@ -474,7 +481,7 @@ window.__ModuleLoader__.load({
 			return h(react.Fragment, null,
 				h(RichIndexingCard, passed),
 				h("div", { style: { margin: "0 0 8px", textAlign: "right" } },
-					h("button", { onClick: load, style: buttonStyle() }, "Reload from host")));
+					h(primitives.Button, { onClick: load, variant: "ghost", size: "sm" }, "Reload from host")));
 		}
 
 		//#endregion

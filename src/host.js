@@ -41,7 +41,11 @@ import {
 } from './host-pure.js'
 
 export const name = 'dsh-rich-indexing'
-export const inject = ['webServer', 'agents', 'llm']
+// tokenMeter + sessions back the engine's property reads (manually constructed
+// engines share this fiber's declared inject surface); compaction is provided
+// by this very plugin at runtime, so it must NOT be declared here (deadlock)
+// — routes read it through ctx.get(), the non-throwing reflective access.
+export const inject = ['webServer', 'agents', 'llm', 'tokenMeter', 'sessions']
 
 const API_PREFIX = '/api/rich-indexing'
 const POLL_INTERVAL_MS = 300
@@ -292,6 +296,7 @@ export function apply(ctx, config = {}) {
         const sessionId = url.searchParams.get('sessionId') ?? ''
         const agent = sessionId !== '' ? ctx.agents?.get?.(sessionId) : undefined
         let sessionState = null
+        let sessionError = null
         if (agent !== undefined) {
           const target = routedTargetOf(agent.session)
           let window = null
@@ -307,10 +312,14 @@ export function apply(ctx, config = {}) {
             try {
               tokens = ctx.tokenMeter.measure(agent.session).totalTokens
               fraction = window > 0 ? tokens / window : null
-            } catch { tokens = null }
+            } catch (error) {
+              tokens = null
+              sessionError = 'meter: ' + String(error?.message ?? error)
+            }
           }
           sessionState = {
             routed: target ?? null,
+            ...(sessionError !== null ? { error: sessionError } : {}),
             window,
             tokens,
             fraction,
@@ -349,7 +358,9 @@ export function apply(ctx, config = {}) {
         if (agent === undefined) { writeJson(res, 409, { ok: false, error: 'session-offline' }); return }
         try {
           const controller = new AbortController()
-          const result = await ctx.compaction.compactNow(agent, controller.signal)
+          const compaction = ctx.get('compaction')
+          if (compaction === undefined) { writeJson(res, 409, { ok: false, error: 'compaction service unavailable' }); return }
+          const result = await compaction.compactNow(agent, controller.signal)
           writeJson(res, 200, {
             ok: true,
             compacted: result === null ? null : {

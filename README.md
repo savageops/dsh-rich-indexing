@@ -103,6 +103,19 @@ The client half registers two slot contributions (no separate build — same
   (`remote.settings.mutate`), live-applied, and persisted to
   `~/.dsh/settings.yaml`.
 
+## Deployment note
+
+`pnpm add file:` **snapshots** the package — it is not a live link. After
+changing this repo, re-sync the installed copy before restarting the
+service:
+
+```sh
+rsync -a --delete --exclude .git --exclude node_modules \
+  /home/sysadmin/.dsh/plugins/dsh-rich-indexing/ \
+  /home/sysadmin/.dsh/profiles/web/node_modules/dsh-rich-indexing/
+systemctl restart cli-dsh-web.service
+```
+
 ## Testing
 
 ```sh
