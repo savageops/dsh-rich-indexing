@@ -62,32 +62,6 @@ window.__ModuleLoader__.load({
 		}
 		//#endregion
 
-		//#region lib/ladder.js
-		/** Horizontal tier ladder with the live pressure marker. */
-		function LadderBar(props) {
-			var tiers = props.tiers || [];
-			var fraction = props.fraction;
-			var children = [];
-			for (var i = 0; i < tiers.length; i += 1) {
-				var tier = tiers[i];
-				var crossed = typeof fraction === "number" && fraction >= tier.ratio;
-				var consumed = props.pointer !== null && props.pointer !== undefined && i <= props.pointer;
-				children.push(h("div", {
-					key: "t" + i,
-					title: "tier " + (i + 1) + ": " + pctOf(tier.ratio) + " · keep " + pctOf(tier.retainRatio) + " · " + tier.law,
-					style: {
-						flex: "1", height: "10px", borderRadius: "5px",
-						background: consumed ? "var(--dsw-alias-state-business-primary, #4a7dff)"
-							: crossed ? "var(--dsw-alias-state-warning-primary, #d9a441)"
-							: "var(--dsw-alias-border-l2, #8884)",
-						marginRight: "4px",
-					},
-				}));
-			}
-			return h("div", { style: { display: "flex", alignItems: "center", margin: "6px 0" } }, children);
-		}
-		//#endregion
-
 		//#region view/CompactionTab.js
 		/**
 		 * The conversation.view tab, trajectory-grade: a full-bleed host that
@@ -104,128 +78,128 @@ window.__ModuleLoader__.load({
 			var tiers = props.tiers || [];
 			var fraction = typeof props.fraction === "number" ? props.fraction : null;
 			var pointer = props.pointer;
-			var marks = [];
+			var segs = [];
+			var ticks = [];
+			var labels = [];
+			var prevPct = 0;
 			for (var i = 0; i < tiers.length; i += 1) {
 				var tier = tiers[i];
+				var pct100 = tier.ratio * 100;
 				var consumed = pointer !== null && pointer !== undefined && i <= pointer;
 				var armed = pointer !== null && pointer !== undefined && i === pointer + 1;
-				marks.push(h("div", {
-					key: "m" + i,
-					className: "ri-gaugeMark" + (consumed ? " ri-consumed" : armed ? " ri-armed" : ""),
-					style: { left: (tier.ratio * 100) + "%" },
+				segs.push(h("div", {
+					key: "s" + i,
+					className: "ri-laneSeg" + (consumed ? " ri-consumed" : armed ? " ri-armed" : ""),
+					style: { left: prevPct + "%", width: Math.max(0, pct100 - prevPct) + "%" },
 					title: "tier " + (i + 1) + " \u00b7 " + pctOf(tier.ratio) + " \u00b7 keep " + pctOf(tier.retainRatio) + " \u00b7 " + tier.law,
-				}, h("span", { className: "ri-gaugeMarkLabel" }, pctOf(tier.ratio) + " " + tier.law)));
+				}));
+				ticks.push(h("div", { key: "t" + i, className: "ri-laneTick", style: { left: pct100 + "%" } }));
+				labels.push(h("div", {
+					key: "l" + i,
+					className: "ri-laneLabel" + (consumed ? " ri-consumed" : armed ? " ri-armed" : ""),
+					style: { left: "calc(" + pct100 + "% + 3px)" },
+				}, pctOf(tier.ratio) + " " + tier.law));
+				prevPct = pct100;
 			}
-			return h("div", { className: "ri-section" },
-				h("div", { className: "ri-eyebrow" }, "pressure"),
-				h("div", { className: "ri-gauge" },
-					h("div", { className: "ri-gaugeTrack" },
-					h("div", { className: "ri-gaugeFill", style: { width: fraction === null ? 0 : (Math.min(1, fraction) * 100) + "%" } }),
-					fraction === null ? null : h("div", { className: "ri-gaugeNeedle", style: { left: (Math.min(1, fraction) * 100) + "%" } }),
-					marks)));
+			return h("div", { className: "ri-lanes" }, [
+				h("div", { key: "track", className: "ri-laneTrack" }, [
+					h("div", { key: "fill", className: "ri-laneFill", style: { width: fraction === null ? 0 : (Math.min(1, fraction) * 100) + "%" } }),
+					segs,
+				]),
+				ticks,
+				fraction === null ? null : h("div", { key: "needle", className: "ri-laneNeedle", style: { left: (Math.min(1, fraction) * 100) + "%" } }),
+				labels,
+			]);
 		}
 
-		function TierTable(props) {
+		/** Group header row (TrajectoryGroupHeader): title + tertiary description. */
+		function GroupHeader(props) {
+			return h("div", { className: "ri-group" }, [
+				h("span", { key: "t", className: "ri-groupTitle" }, props.title),
+				props.description ? h("span", { key: "d", className: "ri-groupDesc" }, props.description) : null,
+			]);
+		}
+
+		/** One 38px tagged card row (TrajectoryCell): index, law tag, text, trailing. */
+		function Row(props) {
+			return h("div", { className: "ri-card" + (props.error === true ? " ri-rowError" : "") }, [
+				h("span", { key: "i", className: "ri-index" }, props.index),
+				h("span", { key: "tag", className: "ri-tag " + props.tagClass }, props.tag),
+				h("span", { key: "x", className: "ri-text" }, props.text),
+				h("span", { key: "tr", className: "ri-trailing" }, props.trailing),
+			]);
+		}
+
+		var LAW_TAG = { gentle: "ri-tagGentle", standard: "ri-tagStandard", consolidating: "ri-tagConsolidating", maximum: "ri-tagMaximum" };
+
+		function TierRows(props) {
 			var tiers = props.tiers || [];
 			var pointer = props.pointer;
+			var nextTier = props.nextTier;
 			var rows = tiers.map(function (tier, i) {
 				var consumed = pointer !== null && pointer !== undefined && i <= pointer;
 				var armed = pointer !== null && pointer !== undefined && i === pointer + 1;
-				return h("tr", { key: "t" + i, className: consumed ? " ri-rowConsumed" : "" }, [
-					h("td", { key: "n" }, "T" + (i + 1)),
-					h("td", { key: "r", className: "ri-num" }, pctOf(tier.ratio)),
-					h("td", { key: "k", className: "ri-num" }, pctOf(tier.retainRatio)),
-					h("td", { key: "l" }, tier.law),
-					h("td", { key: "s" }, h("span", { className: "ri-pill " + (consumed ? "ri-pillConsumed" : armed ? "ri-pillArmed" : "ri-pillPending") },
-						consumed ? "consumed" : armed ? "armed" : "pending")),
-				]);
+				var law = tier.law || "standard";
+				return h(Row, { key: "t" + i,
+					index: "T" + (i + 1),
+					tagClass: LAW_TAG[law] || "ri-tagStandard", tag: law,
+					text: "fires at " + pctOf(tier.ratio) + " \u00b7 keeps " + pctOf(tier.retainRatio),
+					trailing: h("span", { className: consumed ? "ri-consumed" : armed ? "ri-armed" : "" },
+						consumed ? "consumed" : armed ? "armed next" : "pending"),
+				});
 			});
-			return h("div", { className: "ri-section" },
-				h("div", { className: "ri-eyebrow" }, "tier ladder"),
-				h("table", { className: "ri-table" },
-					h("thead", null, h("tr", null, [
-					h("th", { key: "a" }, "tier"), h("th", { key: "b" }, "fires at"), h("th", { key: "c" }, "keeps"),
-					h("th", { key: "d" }, "law"), h("th", { key: "e" }, "status"),
-				])),
-					h("tbody", null, rows)));
+			return h("div", { className: "ri-section" }, [
+				h(GroupHeader, { key: "h", title: "Tier ladder",
+				description: nextTier ? "next: " + pctOf(nextTier.ratio) + " " + nextTier.law : "ladder complete" }),
+				h("div", { key: "r", className: "ri-rows" }, rows),
+			]);
 		}
 
-		function HistoryTable(props) {
+		function HistoryRows(props) {
 			var history = props.history || [];
-			if (history.length === 0) {
-					return h("div", { className: "ri-section" },
-					h("div", { className: "ri-eyebrow" }, "checkpoints"),
-					h("div", { className: "ri-empty" }, "none yet in this session"));
-			}
 			var rows = history.map(function (entry, i) {
 				if (entry.kind === "error") {
-					return h("tr", { key: "h" + i, className: "ri-rowError" }, [
-						h("td", { key: "a", className: "ri-num" }, fmtTime(entry.at)),
-						h("td", { key: "b", colSpan: 3 }, "error: " + (entry.error || "unknown")),
-					]);
+					return h(Row, { key: "h" + i, error: true,
+						index: fmtTime(entry.at), tagClass: "ri-tagMaximum", tag: "error",
+						text: String(entry.error || "unknown"), trailing: "\u2014" });
 				}
-				return h("tr", { key: "h" + i }, [
-					h("td", { key: "a", className: "ri-num" }, fmtTime(entry.at)),
-					h("td", { key: "b" }, (entry.provider || "?") + "/" + (entry.model || "?")),
-					h("td", { key: "c", className: "ri-num" }, entry.shadowedTokens != null ? entry.shadowedTokens.toLocaleString() + " tok" : "\u2014"),
-					h("td", { key: "d", className: "ri-num" }, entry.shadowedNodes != null ? String(entry.shadowedNodes) : "\u2014"),
-				]);
+				return h(Row, { key: "h" + i,
+					index: fmtTime(entry.at),
+					tagClass: "ri-tagRoute", tag: (entry.provider || "?") + "/" + (entry.model || "?"),
+					text: "shadowed " + (entry.shadowedTokens != null ? entry.shadowedTokens.toLocaleString() : "\u2014") + " tokens",
+					trailing: (entry.shadowedNodes != null ? entry.shadowedNodes + " nodes" : "\u2014"),
+				});
 			});
-			return h("div", { className: "ri-section" },
-				h("div", { className: "ri-eyebrow" }, "checkpoints (newest first)"),
-				h("table", { className: "ri-table" },
-					h("thead", null, h("tr", null, [
-					h("th", { key: "a" }, "at"), h("th", { key: "b" }, "route"), h("th", { key: "c" }, "shadowed"), h("th", { key: "d" }, "nodes"),
-				])),
-					h("tbody", null, rows)));
+			return h("div", { className: "ri-section" }, [
+				h(GroupHeader, { key: "h", title: "Checkpoints", description: history.length > 0 ? "newest first" : "" }),
+				history.length === 0
+					? h("div", { key: "e", className: "ri-empty" }, "none yet in this session")
+					: h("div", { key: "r", className: "ri-rows" }, rows),
+			]);
 		}
 
-		function ChainTable(props) {
+		function ChainRows(props) {
 			var models = props.models || [];
 			var lastRoute = props.lastRoute;
 			if (models.length === 0) {
-				return h("div", { className: "ri-section" },
-					h("div", { className: "ri-eyebrow" }, "model chain"),
-					h("div", { className: "ri-empty" }, "none configured \u2014 summaries ride the conversation's own route"));
+				return h("div", { className: "ri-section" }, [
+					h(GroupHeader, { key: "h", title: "Model chain", description: "" }),
+					h("div", { key: "e", className: "ri-empty" }, "none configured \u2014 summaries ride the conversation's own route"),
+				]);
 			}
 			var rows = models.map(function (route, i) {
 				var isLast = lastRoute != null && lastRoute.provider === route.provider && lastRoute.model === route.model;
-				return h("tr", { key: "c" + i }, [
-					h("td", { key: "a" }, i === 0 ? "primary" : "fallback " + i),
-					h("td", { key: "b" }, route.provider + "/" + route.model),
-					h("td", { key: "c" }, route.reasoningEffort && route.reasoningEffort !== "default" ? route.reasoningEffort : "default"),
-					h("td", { key: "d" }, isLast ? h("span", { className: "ri-pill ri-pillConsumed" }, "last used") : "\u2014"),
-				]);
+				return h(Row, { key: "c" + i,
+					index: i === 0 ? "P" : "F" + i,
+					tagClass: "ri-tagRoute", tag: route.provider,
+					text: route.model + " \u00b7 " + (route.reasoningEffort && route.reasoningEffort !== "default" ? "effort " + route.reasoningEffort : "default effort"),
+					trailing: isLast ? h("span", { className: "ri-consumed" }, "last used") : "\u2014",
+				});
 			});
-			return h("div", { className: "ri-section" },
-				h("div", { className: "ri-eyebrow" }, "model chain"),
-				h("table", { className: "ri-table" },
-					h("thead", null, h("tr", null, [
-					h("th", { key: "a" }, "role"), h("th", { key: "b" }, "route"), h("th", { key: "c" }, "effort"), h("th", { key: "d" }, "status"),
-				])),
-					h("tbody", null, rows)));
-		}
-
-		function FactsGrid(props) {
-			var session = props.session;
-			var takeover = props.takeover;
-			var facts = [];
-			function add(key, value) { facts.push([key, value]) }
-			add("tokens", session && session.tokens != null ? session.tokens.toLocaleString() : "\u2014");
-			add("window", session && session.window != null ? session.window.toLocaleString() : "\u2014");
-			add("routed", session && session.routed ? session.routed.provider + "/" + session.routed.model : "\u2014");
-			add("engine", takeover && takeover.engineRegistered === true ? "tiered \u00b7 active" : String((takeover && takeover.state) || "unknown"));
-			var nextTier = session && session.engine ? session.engine.nextTier : null;
-			add("next tier", nextTier ? pctOf(nextTier.ratio) + " (" + nextTier.law + ")" : "ladder complete");
-			if (takeover && Array.isArray(takeover.fallbackLog) && takeover.fallbackLog.length > 0) {
-				add("fallback trail", takeover.fallbackLog.map(function (entry) { return entry.route }).join(" \u2192 "));
-			}
-			return h("div", { className: "ri-section" },
-				h("div", { className: "ri-eyebrow" }, "session"),
-				h("div", { className: "ri-facts" }, facts.map(function (fact, i) { return [
-				h("span", { key: "k" + i, className: "ri-factKey" }, fact[0]),
-				h("span", { key: "v" + i, className: "ri-factVal" }, fact[1]),
-			]; }).flat()));
+			return h("div", { className: "ri-section" }, [
+				h(GroupHeader, { key: "h", title: "Model chain", description: models.length + " route(s) \u00b7 exhaustion falls back to the conversation route" }),
+				h("div", { key: "r", className: "ri-rows" }, rows),
+			]);
 		}
 
 		function fmtTime(at) {
@@ -234,12 +208,13 @@ window.__ModuleLoader__.load({
 			catch { return "\u2014" }
 		}
 
-		/** The tab root: fills the view cell, toolbar rail + scrolling body. */
+		/** The tab root: sticky toolbar rail + scrolling body (full-bleed host). */
 		function CompactionTab(props) {
 			var state = props.state;
 			if (state === null) {
 				return h("div", { className: "ri-root" },
-					h("div", { className: "ri-toolbar" }, h("span", { className: "ri-toolbarTitle" }, "compaction")),
+					h("div", { className: "ri-toolbar" }, h("div", { className: "ri-inner" },
+					h("div", { className: "ri-actions" }, h("span", { className: "ri-toolbarTitle", style: { font: "var(--dsw-font-xxs-12)" } }, "compaction")))),
 					h("div", { className: "ri-body" }, h("div", { className: "ri-empty" }, "loading\u2026")));
 			}
 			var takeover = state.takeover || {};
@@ -249,29 +224,31 @@ window.__ModuleLoader__.load({
 			var healthy = takeover.engineRegistered === true;
 			var fraction = session ? session.fraction : null;
 			var pointer = session && session.engine ? session.engine.tierPointer : null;
+			var nextTier = session && session.engine ? session.engine.nextTier : null;
 			return h("div", { className: "ri-root" }, [
-				h("div", { key: "bar", className: "ri-toolbar" }, [
-					h("span", { key: "t", className: "ri-toolbarTitle" }, "compaction"),
-					h("span", { key: "r", className: "ri-readout" }, fraction === null ? "\u2014 / " + ((session && session.window) || 0).toLocaleString() :
-					h("b", null, (session.tokens || 0).toLocaleString()), " / " + (session.window || 0).toLocaleString() + " \u00b7 " + pct(fraction)),
-					h(primitives.Pill, { key: "p", active: healthy }, healthy ? "tiered engine" : String(takeover.state || "unknown")),
-					h("span", { key: "sp", className: "ri-spacer" }),
+				h("div", { key: "bar", className: "ri-toolbar" },
+					h("div", { className: "ri-inner" }, [
+					h("div", { key: "a", className: "ri-actions" }, [
+						h("span", { key: "t", className: "ri-toolbarTitle", style: { font: "var(--dsw-font-xxs-12)" } }, "compaction"),
+						h("span", { key: "r", className: "ri-readout" }, fraction === null ? "\u2014 / " + ((session && session.window) || 0).toLocaleString() :
+						h("b", null, (session.tokens || 0).toLocaleString()), " / " + (session.window || 0).toLocaleString() + " \u00b7 " + pct(fraction)),
+						h("span", { key: "p", className: "ri-pill" + (healthy ? " ri-pillOn" : "") }, healthy ? "tiered engine" : String(takeover.state || "unknown")),
+					]),
 					props.children !== undefined && props.children !== null ? h("button", {
 					key: "cfg", type: "button", className: "ri-btn", onClick: props.onToggleConfig,
-					"aria-expanded": props.configOpen === true,
-				}, props.configOpen ? "Hide config" : "Configure") : null,
+					"aria-expanded": props.configOpen === true, "aria-pressed": props.configOpen === true,
+					}, props.configOpen ? "Hide config" : "Configure") : null,
 					h("button", {
 					key: "go", type: "button", className: "ri-btn ri-btnPrimary", disabled: props.busy || !healthy || !session,
 					onClick: props.onCompact,
 					title: "fire the next armed tier now",
-				}, "Compact now"),
-				]),
+					}, "Compact now"),
+					])),
 				h("div", { key: "body", className: "ri-body" }, [
 					h(Gauge, { key: "g", tiers: tiers, fraction: fraction, pointer: pointer }),
-					h(TierTable, { key: "tt", tiers: tiers, pointer: pointer }),
-					h(FactsGrid, { key: "f", session: session, takeover: takeover }),
-					h(HistoryTable, { key: "h", history: session ? session.history : [] }),
-					h(ChainTable, { key: "c", models: config.models || [], lastRoute: takeover.lastRoute }),
+					h(TierRows, { key: "tt", tiers: tiers, pointer: pointer, nextTier: nextTier }),
+					h(HistoryRows, { key: "h", history: session ? session.history : [] }),
+					h(ChainRows, { key: "c", models: config.models || [], lastRoute: takeover.lastRoute }),
 					props.children !== undefined && props.children !== null ? props.children : null,
 				]),
 			]);
@@ -542,75 +519,75 @@ window.__ModuleLoader__.load({
 		//#endregion
 
 		//#region styles
-		var CSS = ".ri-root{display:flex;flex-direction:column;overflow:hidden;height:100%;min-height:0;width:100%;box-sizing:border-box;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);font-size:12.5px}"
-		+ ".ri-toolbar{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-bottom:1px solid var(--dsw-alias-border-l2-darkmode-thin);flex:none}"
-		+ ".ri-toolbarTitle{font-weight:600;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary)}"
-		+ ".ri-readout{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary);white-space:nowrap}"
-		+ ".ri-readout b{color:var(--dsw-alias-label-primary);font-weight:600}"
-		+ ".ri-spacer{flex:1}"
-		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;padding:14px 20px 24px;overscroll-behavior:contain;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
-		+ ".ri-section{margin:0 0 18px;min-width:0}"
-		+ ".ri-eyebrow{color:var(--dsw-alias-label-tertiary);font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px}"
-		+ ".ri-empty{color:var(--dsw-alias-label-tertiary);font-size:12px}"
-		+ ".ri-gauge{position:relative;height:44px;margin:2px 0 4px}"
-		+ ".ri-gaugeTrack{position:absolute;left:0;right:0;top:26px;height:6px;border-radius:3px;background:var(--dsw-alias-markdown-code-block)}"
-		+ ".ri-gaugeFill{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--dsw-alias-state-business-primary);min-width:2px}"
-		+ ".ri-gaugeNeedle{position:absolute;top:-4px;bottom:-2px;width:2px;background:var(--dsw-alias-label-primary);border-radius:1px}"
-		+ ".ri-gaugeMark{position:absolute;top:16px;bottom:0;width:2px;background:var(--dsw-alias-border-l2-darkmode-thin)}"
-		+ ".ri-gaugeMarkLabel{position:absolute;bottom:12px;left:4px;white-space:nowrap;font-size:10px;color:var(--dsw-alias-label-tertiary)}"
-		+ ".ri-gaugeMark.ri-consumed{background:var(--dsw-alias-state-business-primary)}"
-		+ ".ri-gaugeMark.ri-consumed .ri-gaugeMarkLabel{color:var(--dsw-alias-state-business-primary)}"
-		+ ".ri-gaugeMark.ri-armed{background:var(--dsw-alias-state-warning-primary)}"
-		+ ".ri-gaugeMark.ri-armed .ri-gaugeMarkLabel{color:var(--dsw-alias-state-warning-primary)}"
-		+ ".ri-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}"
-		+ ".ri-table th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--dsw-alias-label-tertiary);padding:2px 8px;border-bottom:1px solid var(--dsw-alias-border-l2-darkmode-thin)}"
-		+ ".ri-table td{padding:4px 8px;border-bottom:1px solid var(--dsw-alias-border-l2-darkmode-thin);overflow-wrap:anywhere}"
-		+ ".ri-table tbody tr:hover{background:var(--dsw-alias-markdown-code-block)}"
-		+ ".ri-num{text-align:right;white-space:nowrap}"
-		+ ".ri-rowConsumed td{color:var(--dsw-alias-label-secondary)}"
-		+ ".ri-rowError td{color:var(--dsw-alias-state-danger-primary)}"
-		+ ".ri-pill{display:inline-block;border-radius:999px;padding:0 7px;font-size:10.5px;line-height:16px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);color:var(--dsw-alias-label-secondary)}"
-		+ ".ri-pillConsumed{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}"
-		+ ".ri-pillArmed{color:var(--dsw-alias-state-warning-primary);border-color:var(--dsw-alias-state-warning-primary)}"
-		+ ".ri-facts{display:grid;grid-template-columns:120px 1fr;row-gap:4px;column-gap:12px}"
-		+ ".ri-factKey{color:var(--dsw-alias-label-tertiary);font-size:11.5px}"
-		+ ".ri-factVal{overflow-wrap:anywhere}"
-		+ ".ri-cfg{border:1px solid var(--dsw-alias-border-l2-darkmode-thin);border-radius:12px;padding:12px 14px;background:var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-layer-1))}"
-		+ ".ri-cfgRow{display:flex;align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap}"
-		+ ".ri-cfgLabel{color:var(--dsw-alias-label-tertiary);font-size:11.5px;min-width:44px}"
-		+ ".ri-cfgCheck{display:inline-flex;align-items:center;gap:6px;cursor:pointer}"
-		+ ".ri-input,.ri-select{padding:2px 6px;border-radius:6px;font-size:12px;border:1px solid var(--dsw-alias-border-l2-darkmode-thin);background:var(--dsw-specific-input-major);color:var(--dsw-alias-label-primary)}"
-		+ ".ri-w70{width:70px}.ri-w90{width:90px}"
-		+ ".ri-cfgRemove{width:20px;height:20px;border:none;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;border-radius:999px;display:grid;place-items:center;padding:0}"
-		+ ".ri-cfgRemove:hover{color:var(--dsw-alias-state-danger-primary)}"
-		+ ".ri-cfgAdd{margin:2px 0 8px}"
-		+ ".ri-cfgActions{display:flex;align-items:center;gap:8px;margin-top:10px}"
-		+ ".ri-notice{font-size:11.5px;color:var(--dsw-alias-state-danger-primary)}"
-		+ ".ri-noticeOk{color:var(--dsw-alias-state-success-primary,var(--dsw-alias-state-business-primary))}"
-		// Trajectory-metric buttons: 20px tall, 3px radius, no border \u2014
-		// deliberately smaller and squarer than the shared Button primitive.
-		+ ".ri-btn{display:inline-flex;align-items:center;height:20px;padding:0 6px;gap:4px;border:0;border-radius:3px;color:var(--dsw-alias-label-tertiary);background:transparent;cursor:pointer;font-size:11.5px;font-weight:500;white-space:nowrap}"
+		var CSS = ""
+		// Container (ui-trajectory views.module.css contract).
+		+ ".ri-root{display:flex;flex-direction:column;overflow:hidden;height:100%;min-height:0;width:100%;box-sizing:border-box;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1)}"
+		// Toolbar rail (TrajectoryToolbar.module.css .root/.inner).
+		+ ".ri-toolbar{position:sticky;top:0;z-index:4;box-sizing:border-box;width:100%;height:32px;border-bottom:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1)}"
+		+ ".ri-inner{display:flex;align-items:center;box-sizing:border-box;width:100%;height:100%;padding:0 6px;gap:8px}"
+		+ ".ri-actions{display:flex;flex:none;align-items:center;gap:2px}"
+		+ ".ri-btn{display:inline-flex;flex:none;align-items:center;height:20px;padding:0 7px;gap:4px;border:0;border-radius:3px;color:var(--dsw-alias-label-tertiary);background:transparent;cursor:pointer;font:var(--dsw-font-xxs-12);white-space:nowrap}"
 		+ ".ri-btn:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-markdown-code-block))}"
-		+ ".ri-btn:disabled{color:var(--dsw-alias-label-tertiary);opacity:.5;cursor:default;background:transparent}"
+		+ ".ri-btn[aria-pressed='true']{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-markdown-code-block))}"
+		+ ".ri-btn:focus-visible{outline:1px solid var(--dsw-alias-state-business-primary);outline-offset:1px}"
+		+ ".ri-btn:disabled{color:var(--dsw-alias-label-dimmed,var(--dsw-alias-label-tertiary));cursor:not-allowed;background:transparent}"
 		+ ".ri-btnPrimary{color:var(--dsw-alias-state-business-primary)}"
-		+ ".ri-btnPrimary:hover{color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-markdown-code-block))}"
-		// Bottom fade: matches the composer seat's own input-mask gradient
-		// (bg fades to transparent over the last 36px) so the body recedes
-		// under the floating composer instead of hard-clipping.
-		+ ".ri-body{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%);mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%)}"
-		// Segmented lane bars (trajectory's span metric: thin, near-square,
-		// color-mixed by kind) replace the old chunky rounded gauge.
-		+ ".ri-lanes{position:relative;height:34px;margin:2px 0 6px}"
-		+ ".ri-laneTrack{position:absolute;left:0;right:0;top:14px;height:6px;border-radius:1px;background:var(--dsw-alias-markdown-code-block);overflow:hidden}"
-		+ ".ri-laneFill{position:absolute;left:0;top:0;bottom:0;border-radius:1px;background:var(--dsw-alias-state-business-primary);min-width:2px}"
-		+ ".ri-laneNeedle{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--dsw-alias-label-primary)}"
-		+ ".ri-laneSeg{position:absolute;top:14px;height:6px;border-radius:1px;background:var(--dsw-alias-border-l2-darkmode-thin)}"
+		+ ".ri-btnPrimary:hover{color:var(--dsw-alias-state-business-primary)}"
+		// Readout + status pill.
+		+ ".ri-readout{font:var(--dsw-font-xxs-12);color:var(--dsw-alias-label-secondary);white-space:nowrap;font-variant-numeric:tabular-nums}"
+		+ ".ri-readout b{color:var(--dsw-alias-label-primary);font-weight:600}"
+		+ ".ri-pill{display:inline-flex;align-items:center;height:22px;box-sizing:border-box;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform,var(--dsw-alias-markdown-code-block))}"
+		+ ".ri-pillOn{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-state-success-tertiary)}"
+		// Scrolling body + bottom recede (the composer seat's input-mask gradient).
+		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 0 calc(var(--dsh-composer-height,152px) + 16px);-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%);mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
+		// Group headers (TrajectoryGroupHeader.module.css).
+		+ ".ri-group{display:flex;align-items:center;box-sizing:border-box;height:36px;padding:0 20px;gap:24px;min-width:0}"
+		+ ".ri-groupTitle{flex:none;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-primary)}"
+		+ ".ri-groupDesc{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary)}"
+		// Pressure lanes (TrajectoryTimeline span metric).
+		+ ".ri-lanes{position:relative;height:40px;margin:4px 20px 10px}"
+		+ ".ri-laneTrack{position:absolute;left:0;right:0;top:16px;height:8px;border-radius:1px;background:var(--dsw-alias-bg-layer-2);overflow:hidden}"
+		+ ".ri-laneFill{position:absolute;left:0;top:0;bottom:0;border-radius:1px;background:var(--dsw-alias-state-business-primary);min-width:2px;opacity:.78}"
+		+ ".ri-laneNeedle{position:absolute;top:6px;bottom:8px;width:2px;border-radius:1px;background:var(--dsw-alias-label-primary)}"
+		+ ".ri-laneSeg{position:absolute;top:0;bottom:0;border-radius:1px;background:var(--dsw-alias-border-l2-darkmode-thin)}"
 		+ ".ri-laneSeg.ri-consumed{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 68%,var(--dsw-alias-label-secondary))}"
 		+ ".ri-laneSeg.ri-armed{background:color-mix(in srgb,var(--dsw-alias-state-warning-primary) 72%,var(--dsw-alias-label-secondary))}"
-		+ ".ri-laneTick{position:absolute;top:6px;bottom:6px;width:1px;background:var(--dsw-alias-border-l2-darkmode-thin)}"
-		+ ".ri-laneLabel{position:absolute;top:0;font-size:9.5px;line-height:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}"
+		+ ".ri-laneTick{position:absolute;top:10px;bottom:12px;width:1px;background:var(--dsw-alias-border-l2)}"
+		+ ".ri-laneLabel{position:absolute;top:0;font:var(--dsw-font-xxs-12);line-height:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}"
 		+ ".ri-laneLabel.ri-consumed{color:var(--dsw-alias-state-business-primary)}"
-		+ ".ri-laneLabel.ri-armed{color:var(--dsw-alias-state-warning-primary)}";
+		+ ".ri-laneLabel.ri-armed{color:var(--dsw-alias-state-warning-primary)}"
+		// Card rows (TrajectoryCell.module.css .root: 38px cards on layer-3).
+		+ ".ri-rows{display:flex;flex-direction:column;gap:1px;padding:0 20px}"
+		+ ".ri-card{display:flex;align-items:center;box-sizing:border-box;height:38px;padding:0 8px 0 20px;gap:24px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);min-width:0}"
+		+ ".ri-card.ri-rowError{border-color:color-mix(in srgb,var(--dsw-alias-state-danger-primary) 40%,var(--dsw-alias-border-l2))}"
+		+ ".ri-index{flex:none;min-width:24px;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary)}"
+		+ ".ri-tag{flex:none;display:inline-flex;align-items:center;box-sizing:border-box;height:22px;max-width:120px;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;overflow:hidden}"
+		+ ".ri-tagGentle{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-state-success-tertiary)}"
+		+ ".ri-tagStandard{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform,var(--dsw-alias-markdown-code-block))}"
+		+ ".ri-tagConsolidating{color:var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warning-primary));background:var(--dsw-alias-state-warn-tertiary,var(--dsw-alias-markdown-code-block))}"
+		+ ".ri-tagMaximum{color:var(--dsw-alias-state-danger-primary);background:color-mix(in srgb,var(--dsw-alias-state-danger-primary) 12%,var(--dsw-alias-bg-layer-1))}"
+		+ ".ri-tagRoute{color:var(--dsw-alias-state-business-primary);background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 12%,var(--dsw-alias-bg-layer-1))}"
+		+ ".ri-text{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-primary)}"
+		+ ".ri-trailing{flex:none;display:flex;align-items:center;gap:12px;font:var(--dsw-font-xxs-12);color:var(--dsw-alias-label-tertiary);white-space:nowrap}"
+		+ ".ri-trailing .ri-consumed{color:var(--dsw-alias-state-business-primary)}"
+		+ ".ri-trailing .ri-armed{color:var(--dsw-alias-state-warning-primary)}"
+		+ ".ri-trailing .ri-rowError{color:var(--dsw-alias-state-danger-primary)}"
+		+ ".ri-empty{padding:6px 20px;font:var(--dsw-font-xxs-12);color:var(--dsw-alias-label-tertiary)}"
+		// Inline config panel (search-input grammar for fields).
+		+ ".ri-cfg{margin:2px 20px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:10px 12px;background:var(--dsw-alias-bg-layer-2)}"
+		+ ".ri-cfgRow{display:flex;align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap}"
+		+ ".ri-cfgLabel{flex:none;color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xxs-12);min-width:44px}"
+		+ ".ri-cfgCheck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:var(--dsw-font-xxs-12)}"
+		+ ".ri-input,.ri-select{box-sizing:border-box;height:22px;padding:0 6px;border-radius:4px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font:var(--dsw-font-xxs-12)}"
+		+ ".ri-input:hover,.ri-select:hover{border-color:var(--dsw-alias-label-caption,var(--dsw-alias-border-l2))}"
+		+ ".ri-input:focus,.ri-select:focus{border-color:var(--dsw-alias-state-business-primary);outline:none;background:var(--dsw-alias-bg-layer-1)}"
+		+ ".ri-w70{width:70px}.ri-w90{width:90px}"
+		+ ".ri-cfgRemove{width:20px;height:20px;border:0;background:transparent;color:var(--dsw-alias-label-tertiary);cursor:pointer;border-radius:3px;display:grid;place-items:center;padding:0;font:var(--dsw-font-xxs-12)}"
+		+ ".ri-cfgRemove:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-markdown-code-block))}"
+		+ ".ri-cfgAdd{margin:4px 0 2px}"
+		+ ".ri-cfgActions{display:flex;align-items:center;gap:8px;margin-top:10px}"
+		+ ".ri-notice{font:var(--dsw-font-xxs-12);color:var(--dsw-alias-state-danger-primary)}"
+		+ ".ri-noticeOk{color:var(--dsw-alias-state-success-primary)}";
 		function injectStyles() {
 			if (typeof document === "undefined") return;
 			if (document.getElementById("dsh-rich-indexing-styles")) return;

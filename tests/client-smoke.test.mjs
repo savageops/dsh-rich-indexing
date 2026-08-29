@@ -163,7 +163,7 @@ test('CompactionTab renders full state without unbound identifiers', () => {
   assert.ok(tree.includes('armed') && tree.includes('consumed'), 'tier statuses rendered')
   assert.ok(tree.includes('4,200 tok'), 'checkpoint history rendered')
   assert.ok(tree.includes('route down'), 'checkpoint errors rendered')
-  assert.ok(tree.includes('primary') && tree.includes('last used'), 'chain table rendered')
+  assert.ok(tree.includes('effort high') && tree.includes('last used'), 'chain rows rendered')
   assert.ok(!tree.includes('Release') && !tree.includes('Refresh'), 'utility-only actions: no release, no refresh')
 })
 
