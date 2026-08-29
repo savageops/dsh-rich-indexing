@@ -275,8 +275,10 @@ export function apply(ctx, config = {}) {
     }
   }
   // The plugin's own fiber carries the engine service; its disposal must also
-  // drop the takeover line, or stock compaction stays off with nobody owning it.
-  ctx.fiber?.effect?.(releaseTakeover)
+  // drop the takeover line, or stock compaction stays off with nobody owning
+  // it. ctx.effect runs the body NOW and registers the RETURNED disposer for
+  // fiber disposal — so the body returns the cleanup without running it.
+  ctx.effect?.(() => () => { releaseTakeover() }, 'rich-indexing: takeover line teardown')
 
   // ── 5. Routes. ─────────────────────────────────────────────────────────────
   const routes = [
