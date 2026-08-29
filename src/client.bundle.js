@@ -96,6 +96,8 @@ window.__ModuleLoader__.load({
 		 */
 		function CompactionTab(props) {
 			var state = props.state;
+			var busy = props.busy;
+			var refresh = props.refresh;
 			if (state === null) {
 				return h("div", { style: { padding: "20px", color: "var(--dsw-alias-label-secondary, #888)", fontSize: "12.5px" } }, "Loading compaction state\u2026");
 			}
@@ -488,6 +490,8 @@ window.__ModuleLoader__.load({
 
 		exports.apply = apply;
 		exports.inject = inject;
+		/** Presenters exported hook-free for the client smoke test. */
+		exports.views = { CompactionTab: CompactionTab, RichIndexingCard: RichIndexingCard };
 		return module.exports;
 	},
 });

@@ -142,7 +142,11 @@ function lastCompactionOf(session) {
       }
     }
     if (event?.type === 'compaction/end') {
-      return { kind: event.data?.error !== undefined ? 'error' : 'end', error: event.data?.error ?? null }
+      // An error-less end is just the cycle terminator — keep scanning for
+      // the informative summary behind it; an errored end IS the news.
+      if (event.data?.error !== undefined && event.data?.error !== null) {
+        return { kind: 'error', error: event.data.error }
+      }
     }
   }
   return null
