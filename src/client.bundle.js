@@ -256,12 +256,12 @@ window.__ModuleLoader__.load({
 					h("b", null, (session.tokens || 0).toLocaleString()), " / " + (session.window || 0).toLocaleString() + " \u00b7 " + pct(fraction)),
 					h(primitives.Pill, { key: "p", active: healthy }, healthy ? "tiered engine" : String(takeover.state || "unknown")),
 					h("span", { key: "sp", className: "ri-spacer" }),
-					props.children !== undefined && props.children !== null ? h(primitives.Button, {
-					key: "cfg", variant: "ghost", size: "sm", onClick: props.onToggleConfig,
+					props.children !== undefined && props.children !== null ? h("button", {
+					key: "cfg", type: "button", className: "ri-btn", onClick: props.onToggleConfig,
 					"aria-expanded": props.configOpen === true,
-				}, "Configure") : null,
-					h(primitives.Button, {
-					key: "go", variant: "primary", size: "sm", disabled: props.busy || !healthy || !session,
+				}, props.configOpen ? "Hide config" : "Configure") : null,
+					h("button", {
+					key: "go", type: "button", className: "ri-btn ri-btnPrimary", disabled: props.busy || !healthy || !session,
 					onClick: props.onCompact,
 					title: "fire the next armed tier now",
 				}, "Compact now"),
@@ -343,21 +343,21 @@ window.__ModuleLoader__.load({
 					onChange: function (e) { patch({ maxTokens: Number(e.target.value) }) } }),
 				]),
 				tierRows,
-				tiers.length < 6 ? h(primitives.Button, { key: "at", variant: "ghost", size: "sm", className: "ri-cfgAdd",
+				tiers.length < 6 ? h("button", { key: "at", type: "button", className: "ri-btn ri-cfgAdd",
 				onClick: function () {
 					var last = tiers[tiers.length - 1];
 					var ratio = last ? Math.min(0.98, last.ratio + 0.1) : 0.3;
 					patch({ tiers: tiers.concat([{ ratio: ratio, retainRatio: last ? Math.max(0.02, last.retainRatio - 0.02) : 0.12, law: "maximum" }]) });
 				} }, "+ tier") : null,
 				models.length > 0 ? modelRows : h("div", { key: "me", className: "ri-empty" }, "no chain \u2014 summaries ride the conversation's own route"),
-				models.length < 4 ? h(primitives.Button, { key: "am", variant: "ghost", size: "sm", className: "ri-cfgAdd",
+				models.length < 4 ? h("button", { key: "am", type: "button", className: "ri-btn ri-cfgAdd",
 					onClick: function () {
 					var dflt = (props.catalog && props.catalog.default) || {};
 					patch({ models: models.concat([{ provider: dflt.provider || "", model: dflt.model || "", reasoningEffort: "default" }]) });
 				} }, "+ route") : null,
 				h("div", { key: "act", className: "ri-cfgActions" }, [
-					h(primitives.Button, { key: "save", variant: "primary", size: "sm", disabled: props.saving === true, onClick: props.onSave }, "Save"),
-					h(primitives.Button, { key: "dis", variant: "ghost", size: "sm", onClick: props.onDiscard }, "Discard"),
+				h("button", { key: "save", type: "button", className: "ri-btn ri-btnPrimary", disabled: props.saving === true, onClick: props.onSave }, "Save"),
+				h("button", { key: "dis", type: "button", className: "ri-btn", onClick: props.onDiscard }, "Discard"),
 				props.notice ? h("span", { key: "n", className: props.notice.indexOf("saved") === 0 ? "ri-notice ri-noticeOk" : "ri-notice" }, props.notice) : null,
 				]),
 			]);
@@ -586,7 +586,31 @@ window.__ModuleLoader__.load({
 		+ ".ri-cfgAdd{margin:2px 0 8px}"
 		+ ".ri-cfgActions{display:flex;align-items:center;gap:8px;margin-top:10px}"
 		+ ".ri-notice{font-size:11.5px;color:var(--dsw-alias-state-danger-primary)}"
-		+ ".ri-noticeOk{color:var(--dsw-alias-state-success-primary,var(--dsw-alias-state-business-primary))}";
+		+ ".ri-noticeOk{color:var(--dsw-alias-state-success-primary,var(--dsw-alias-state-business-primary))}"
+		// Trajectory-metric buttons: 20px tall, 3px radius, no border \u2014
+		// deliberately smaller and squarer than the shared Button primitive.
+		+ ".ri-btn{display:inline-flex;align-items:center;height:20px;padding:0 6px;gap:4px;border:0;border-radius:3px;color:var(--dsw-alias-label-tertiary);background:transparent;cursor:pointer;font-size:11.5px;font-weight:500;white-space:nowrap}"
+		+ ".ri-btn:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-markdown-code-block))}"
+		+ ".ri-btn:disabled{color:var(--dsw-alias-label-tertiary);opacity:.5;cursor:default;background:transparent}"
+		+ ".ri-btnPrimary{color:var(--dsw-alias-state-business-primary)}"
+		+ ".ri-btnPrimary:hover{color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-interactive-bg-hover,var(--dsw-alias-markdown-code-block))}"
+		// Bottom fade: matches the composer seat's own input-mask gradient
+		// (bg fades to transparent over the last 36px) so the body recedes
+		// under the floating composer instead of hard-clipping.
+		+ ".ri-body{-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%);mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%)}"
+		// Segmented lane bars (trajectory's span metric: thin, near-square,
+		// color-mixed by kind) replace the old chunky rounded gauge.
+		+ ".ri-lanes{position:relative;height:34px;margin:2px 0 6px}"
+		+ ".ri-laneTrack{position:absolute;left:0;right:0;top:14px;height:6px;border-radius:1px;background:var(--dsw-alias-markdown-code-block);overflow:hidden}"
+		+ ".ri-laneFill{position:absolute;left:0;top:0;bottom:0;border-radius:1px;background:var(--dsw-alias-state-business-primary);min-width:2px}"
+		+ ".ri-laneNeedle{position:absolute;top:-3px;bottom:-3px;width:2px;border-radius:1px;background:var(--dsw-alias-label-primary)}"
+		+ ".ri-laneSeg{position:absolute;top:14px;height:6px;border-radius:1px;background:var(--dsw-alias-border-l2-darkmode-thin)}"
+		+ ".ri-laneSeg.ri-consumed{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 68%,var(--dsw-alias-label-secondary))}"
+		+ ".ri-laneSeg.ri-armed{background:color-mix(in srgb,var(--dsw-alias-state-warning-primary) 72%,var(--dsw-alias-label-secondary))}"
+		+ ".ri-laneTick{position:absolute;top:6px;bottom:6px;width:1px;background:var(--dsw-alias-border-l2-darkmode-thin)}"
+		+ ".ri-laneLabel{position:absolute;top:0;font-size:9.5px;line-height:11px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;font-variant-numeric:tabular-nums}"
+		+ ".ri-laneLabel.ri-consumed{color:var(--dsw-alias-state-business-primary)}"
+		+ ".ri-laneLabel.ri-armed{color:var(--dsw-alias-state-warning-primary)}";
 		function injectStyles() {
 			if (typeof document === "undefined") return;
 			if (document.getElementById("dsh-rich-indexing-styles")) return;
