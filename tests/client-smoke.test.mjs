@@ -185,7 +185,7 @@ test('ConfigPanel renders and edits tiers/models without unbound identifiers', (
     onSave: () => {}, onDiscard: () => {},
   })
   const tree = JSON.stringify(expand(element))
-  assert.ok(tree.includes('configuration'), 'config eyebrow rendered')
+  assert.ok(tree.includes('Configuration') && tree.includes('live-applied'), 'config group header rendered')
   assert.ok(tree.includes('maxTokens'), 'maxTokens editor rendered')
   assert.ok(tree.includes('primary'), 'chain role rendered')
 

@@ -124,7 +124,8 @@ window.__ModuleLoader__.load({
 		function Row(props) {
 			return h("div", { className: "ri-card" + (props.error === true ? " ri-rowError" : "") }, [
 				h("span", { key: "i", className: "ri-index" }, props.index),
-				h("span", { key: "tag", className: "ri-tag " + props.tagClass }, props.tag),
+				h("span", { key: "ts", className: "ri-tagSlot" },
+					h("span", { key: "tag", className: "ri-tag " + props.tagClass }, props.tag)),
 				h("span", { key: "x", className: "ri-text" }, props.text),
 				h("span", { key: "tr", className: "ri-trailing" }, props.trailing),
 			]);
@@ -214,7 +215,7 @@ window.__ModuleLoader__.load({
 			if (state === null) {
 				return h("div", { className: "ri-root" },
 					h("div", { className: "ri-toolbar" }, h("div", { className: "ri-inner" },
-					h("div", { className: "ri-actions" }, h("span", { className: "ri-toolbarTitle", style: { font: "var(--dsw-font-xxs-12)" } }, "compaction")))),
+					h("div", { className: "ri-actions" }, h("span", { className: "ri-title" }, "compaction")))),
 					h("div", { className: "ri-body" }, h("div", { className: "ri-empty" }, "loading\u2026")));
 			}
 			var takeover = state.takeover || {};
@@ -229,7 +230,7 @@ window.__ModuleLoader__.load({
 				h("div", { key: "bar", className: "ri-toolbar" },
 					h("div", { className: "ri-inner" }, [
 					h("div", { key: "a", className: "ri-actions" }, [
-						h("span", { key: "t", className: "ri-toolbarTitle", style: { font: "var(--dsw-font-xxs-12)" } }, "compaction"),
+						h("span", { key: "t", className: "ri-title" }, "compaction"),
 						h("span", { key: "r", className: "ri-readout" }, fraction === null ? "\u2014 / " + ((session && session.window) || 0).toLocaleString() :
 						h("b", null, (session.tokens || 0).toLocaleString()), " / " + (session.window || 0).toLocaleString() + " \u00b7 " + pct(fraction)),
 						h("span", { key: "p", className: "ri-pill" + (healthy ? " ri-pillOn" : "") }, healthy ? "tiered engine" : String(takeover.state || "unknown")),
@@ -308,8 +309,9 @@ window.__ModuleLoader__.load({
 					onClick: function () { patch({ models: models.filter(function (_, j) { return j !== i }) }) } }, "\u00d7"),
 				]);
 			});
-			return h("div", { className: "ri-section ri-cfg" }, [
-				h("div", { key: "eb", className: "ri-eyebrow" }, "configuration (live-applied)"),
+			return h("div", { className: "ri-section" }, [
+				h(GroupHeader, { key: "gh", title: "Configuration", description: "live-applied on save" }),
+				h("div", { key: "wrap", className: "ri-cfg" }, [
 				h("div", { key: "top", className: "ri-cfgRow" }, [
 					h("label", { key: "en", className: "ri-cfgCheck" },
 					h("input", { type: "checkbox", checked: draft.enabled !== false, onChange: function (e) { patch({ enabled: e.target.checked }) } }),
@@ -333,12 +335,13 @@ window.__ModuleLoader__.load({
 					patch({ models: models.concat([{ provider: dflt.provider || "", model: dflt.model || "", reasoningEffort: "default" }]) });
 				} }, "+ route") : null,
 				h("div", { key: "act", className: "ri-cfgActions" }, [
-				h("button", { key: "save", type: "button", className: "ri-btn ri-btnPrimary", disabled: props.saving === true, onClick: props.onSave }, "Save"),
-				h("button", { key: "dis", type: "button", className: "ri-btn", onClick: props.onDiscard }, "Discard"),
-				props.notice ? h("span", { key: "n", className: props.notice.indexOf("saved") === 0 ? "ri-notice ri-noticeOk" : "ri-notice" }, props.notice) : null,
+					h("button", { key: "save", type: "button", className: "ri-btn ri-btnPrimary", disabled: props.saving === true, onClick: props.onSave }, "Save"),
+					h("button", { key: "dis", type: "button", className: "ri-btn", onClick: props.onDiscard }, "Discard"),
+					props.notice ? h("span", { key: "n", className: props.notice.indexOf("saved") === 0 ? "ri-notice ri-noticeOk" : "ri-notice" }, props.notice) : null,
+					]),
 				]),
-			]);
-		}
+				]);
+			}
 		//#endregion
 
 		//#region card/RichIndexingCard.js
@@ -539,9 +542,11 @@ window.__ModuleLoader__.load({
 		+ ".ri-pill{display:inline-flex;align-items:center;height:22px;box-sizing:border-box;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform,var(--dsw-alias-markdown-code-block))}"
 		+ ".ri-pillOn{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-state-success-tertiary)}"
 		// Scrolling body + bottom recede (the composer seat's input-mask gradient).
-		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding:8px 0 calc(var(--dsh-composer-height,152px) + 16px);-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%);mask-image:linear-gradient(180deg,#000 calc(100% - 36px),transparent 100%);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
+		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding:0 0 16px;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
 		// Group headers (TrajectoryGroupHeader.module.css).
-		+ ".ri-group{display:flex;align-items:center;box-sizing:border-box;height:36px;padding:0 20px;gap:24px;min-width:0}"
+		+ ".ri-group{display:flex;align-items:center;box-sizing:border-box;height:36px;padding:0 20px;gap:24px;min-width:0;margin-top:8px}"
+		+ ".ri-lanes ~ .ri-section .ri-group:first-child,.ri-body > .ri-section:first-child .ri-group{margin-top:0}"
+		+ ".ri-title{font:var(--dsw-font-xxs-12);color:var(--dsw-alias-label-secondary);text-transform:uppercase;letter-spacing:.05em}"
 		+ ".ri-groupTitle{flex:none;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-primary)}"
 		+ ".ri-groupDesc{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary)}"
 		// Pressure lanes (TrajectoryTimeline span metric).
@@ -558,10 +563,11 @@ window.__ModuleLoader__.load({
 		+ ".ri-laneLabel.ri-armed{color:var(--dsw-alias-state-warning-primary)}"
 		// Card rows (TrajectoryCell.module.css .root: 38px cards on layer-3).
 		+ ".ri-rows{display:flex;flex-direction:column;gap:1px;padding:0 20px}"
+		+ ".ri-tagSlot{flex:none;width:80px;display:flex;align-items:center;min-width:0}"
 		+ ".ri-card{display:flex;align-items:center;box-sizing:border-box;height:38px;padding:0 8px 0 20px;gap:24px;border-radius:8px;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-3);min-width:0}"
 		+ ".ri-card.ri-rowError{border-color:color-mix(in srgb,var(--dsw-alias-state-danger-primary) 40%,var(--dsw-alias-border-l2))}"
 		+ ".ri-index{flex:none;min-width:24px;font:var(--dsw-font-xs-13);color:var(--dsw-alias-label-tertiary)}"
-		+ ".ri-tag{flex:none;display:inline-flex;align-items:center;box-sizing:border-box;height:22px;max-width:120px;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;overflow:hidden}"
+		+ ".ri-tag{display:inline-flex;align-items:center;box-sizing:border-box;height:22px;max-width:100%;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}"
 		+ ".ri-tagGentle{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-state-success-tertiary)}"
 		+ ".ri-tagStandard{color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform,var(--dsw-alias-markdown-code-block))}"
 		+ ".ri-tagConsolidating{color:var(--dsw-alias-state-warn-label,var(--dsw-alias-state-warning-primary));background:var(--dsw-alias-state-warn-tertiary,var(--dsw-alias-markdown-code-block))}"
@@ -574,7 +580,7 @@ window.__ModuleLoader__.load({
 		+ ".ri-trailing .ri-rowError{color:var(--dsw-alias-state-danger-primary)}"
 		+ ".ri-empty{padding:6px 20px;font:var(--dsw-font-xxs-12);color:var(--dsw-alias-label-tertiary)}"
 		// Inline config panel (search-input grammar for fields).
-		+ ".ri-cfg{margin:2px 20px 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:10px 12px;background:var(--dsw-alias-bg-layer-2)}"
+		+ ".ri-cfg{padding:0 20px}"
 		+ ".ri-cfgRow{display:flex;align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap}"
 		+ ".ri-cfgLabel{flex:none;color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xxs-12);min-width:44px}"
 		+ ".ri-cfgCheck{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:var(--dsw-font-xxs-12)}"
@@ -718,7 +724,8 @@ window.__ModuleLoader__.load({
 					setNotice(null);
 				},
 			}) : null));
-			return h("div", { style: { display: "contents" } }, children);
+			if (children.length === 1) return children[0]
+			return h("div", { style: { display: "flex", flexDirection: "column", minHeight: 0, height: "100%" } }, children);
 		}
 
 		/** Slot wrapper: load describe + catalog, hand the card its props. */
