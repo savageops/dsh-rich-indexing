@@ -43,9 +43,23 @@
     },
     "bundle": {
       "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
     }
   },
   "scripts": {
     "test": "node --test tests/"
+  },
+  "exports": {
+    ".": "./src/host.js",
+    "./client": "./src/client.bundle.js",
+    "./package.json": "./package.json"
   }
 }

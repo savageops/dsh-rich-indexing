@@ -88,6 +88,21 @@ maximum law.
 
 Loopback + same-origin guarded, like every plugin-family route.
 
+## Client (module sub-tab + settings card)
+
+The client half registers two slot contributions (no separate build — same
+`__ModuleLoader__` facade format as the rest of the plugin family):
+
+- **Compaction** — a `conversation.view` module sub-tab: live pressure vs
+  the tier ladder, tier pointer, last checkpoint facts, model-chain health,
+  Compact-now and Release actions, 5s auto-refresh.
+- **rich-indexing** — a Settings → Plugins card keyed to the settings
+  namespace: enabled toggle, maxTokens, the tier table (ratio / keep / law),
+  and the model chain editor — provider, model, and effort per route, with
+  lists from the host's model catalog. Saves are revision-fenced
+  (`remote.settings.mutate`), live-applied, and persisted to
+  `~/.dsh/settings.yaml`.
+
 ## Testing
 
 ```sh
