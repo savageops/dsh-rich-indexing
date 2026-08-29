@@ -1,0 +1,10 @@
+# dsh-rich-indexing bundle patch: inserts the tiered compaction hub row.
+#
+# Node half (exports "."): owns the `compaction` service with the tier
+# ladder and model fallback chain (see DESIGN.md). The stock compaction-basic
+# entry is disabled by a managed line in the profile's own cordis.patch.yml
+# (written at apply time, removed on teardown) — cordis refuses a second
+# provider for one service key, so exactly one engine is ever mounted.
+- insert:
+    - id: rich-indexing
+      name: dsh-rich-indexing
