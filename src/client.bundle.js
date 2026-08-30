@@ -542,7 +542,7 @@ window.__ModuleLoader__.load({
 		+ ".ri-pill{display:inline-flex;align-items:center;height:22px;box-sizing:border-box;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform,var(--dsw-alias-markdown-code-block))}"
 		+ ".ri-pillOn{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-state-success-tertiary)}"
 		// Scrolling body + bottom recede (the composer seat's input-mask gradient).
-		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding:0 0 16px;--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
+		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding:0 0 calc(var(--dsh-composer-height,152px) + 16px);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
 		// Group headers (TrajectoryGroupHeader.module.css).
 		+ ".ri-group{display:flex;align-items:center;box-sizing:border-box;height:36px;padding:0 20px;gap:24px;min-width:0;margin-top:8px}"
 		+ ".ri-lanes ~ .ri-section .ri-group:first-child,.ri-body > .ri-section:first-child .ri-group{margin-top:0}"
