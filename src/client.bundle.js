@@ -216,7 +216,7 @@ window.__ModuleLoader__.load({
 				return h("div", { className: "ri-root" },
 					h("div", { className: "ri-toolbar" }, h("div", { className: "ri-inner" },
 					h("div", { className: "ri-actions" }, h("span", { className: "ri-title" }, "compaction")))),
-					h("div", { className: "ri-body" }, h("div", { className: "ri-empty" }, "loading\u2026")));
+					h("div", { className: "ri-body" }, [h("div", { className: "ri-empty" }, "loading\u2026"), h("div", { className: "ri-fade", "aria-hidden": "true" })]));
 			}
 			var takeover = state.takeover || {};
 			var session = state.session;
@@ -251,6 +251,7 @@ window.__ModuleLoader__.load({
 					h(HistoryRows, { key: "h", history: session ? session.history : [] }),
 					h(ChainRows, { key: "c", models: config.models || [], lastRoute: takeover.lastRoute }),
 					props.children !== undefined && props.children !== null ? props.children : null,
+				h("div", { key: "fade", className: "ri-fade", "aria-hidden": "true" }),
 				]),
 			]);
 		}
@@ -542,7 +543,8 @@ window.__ModuleLoader__.load({
 		+ ".ri-pill{display:inline-flex;align-items:center;height:22px;box-sizing:border-box;padding:0 4px;border-radius:6px;font:var(--dsw-font-xxs-12);white-space:nowrap;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform,var(--dsw-alias-markdown-code-block))}"
 		+ ".ri-pillOn{color:var(--dsw-alias-state-success-primary);background:var(--dsw-alias-state-success-tertiary)}"
 		// Scrolling body + bottom recede (the composer seat's input-mask gradient).
-		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;padding:0 0 calc(var(--dsh-composer-height,152px) + 16px);--dsh-scrollbar-thumb:var(--dsw-alias-scrollbar-bg-l2);--dsh-scrollbar-thumb-hover:var(--dsw-alias-scrollbar-hover-l2)}"
+		+ ".ri-body{flex:1;min-height:0;min-width:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;padding:0 0 calc(var(--dsh-composer-height,152px) + 16px)}"
+		+ ".ri-body::-webkit-scrollbar{display:none}"
 		// Group headers (TrajectoryGroupHeader.module.css).
 		+ ".ri-group{display:flex;align-items:center;box-sizing:border-box;height:36px;padding:0 20px;gap:24px;min-width:0;margin-top:8px}"
 		+ ".ri-lanes ~ .ri-section .ri-group:first-child,.ri-body > .ri-section:first-child .ri-group{margin-top:0}"
@@ -580,6 +582,7 @@ window.__ModuleLoader__.load({
 		+ ".ri-trailing .ri-rowError{color:var(--dsw-alias-state-danger-primary)}"
 		+ ".ri-empty{padding:6px 20px;font:var(--dsw-font-xxs-12);color:var(--dsw-alias-label-tertiary)}"
 		// Inline config panel (search-input grammar for fields).
+		+ ".ri-fade{position:sticky;bottom:0;z-index:2;height:36px;margin-top:-36px;pointer-events:none;background:linear-gradient(180deg,color-mix(in srgb,var(--dsw-alias-bg-layer-1) 0%,transparent) 0,var(--dsw-alias-bg-layer-1) 36px)}"
 		+ ".ri-cfg{padding:0 20px}"
 		+ ".ri-cfgRow{display:flex;align-items:center;gap:8px;margin:4px 0;flex-wrap:wrap}"
 		+ ".ri-cfgLabel{flex:none;color:var(--dsw-alias-label-tertiary);font:var(--dsw-font-xxs-12);min-width:44px}"
